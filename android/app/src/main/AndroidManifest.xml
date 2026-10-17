@@ -1,5 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.yd.vehiclemanager">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- 网络权限 -->
     <uses-permission android:name="android.permission.INTERNET"/>
@@ -17,7 +16,6 @@
 
     <application
         android:label="我的小摩托"
-        android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
@@ -40,4 +38,5 @@
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
+
 </manifest>

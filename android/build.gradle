@@ -1,0 +1,37 @@
+allprojects {
+    rootProject.buildDir = "../build"
+    subprojects {
+        eol = System.lineSeparator()
+        eol = eol.replaceAll(r"\\$", "")
+        afterEvaluate {
+            if (plugins.hasPlugin("com.android.application")) {
+                println("Android Application Gradle Plugin Version: " + com.android.application.class.getProtectionDomain().getCodeSource().location.path)
+            }
+        }
+        eol = eol.replaceAll(r"\\$", "")
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+val flutterSdkPath = run {
+    val localPropertiesFile = localPropertiesFile ?: file("../../local.properties")
+    val localProperties = Properties()
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.withReader("UTF-8") { reader ->
+            localProperties.load(reader)
+        }
+    }
+    val flutterSdkPathProperty = localProperties.getProperty("flutter.sdk")
+    if (flutterSdkPathProperty != null) {
+        flutterSdkPathProperty
+    } else {
+        throw GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
+    }
+}
+
+plugins {
+    id("dev.flutter.flutter-plugin-loader") version "1.0.0"
+}
