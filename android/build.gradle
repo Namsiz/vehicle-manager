@@ -1,37 +1,28 @@
-allprojects {
-    rootProject.buildDir = "../build"
-    subprojects {
-        eol = System.lineSeparator()
-        eol = eol.replaceAll(r"\\$", "")
-        afterEvaluate {
-            if (plugins.hasPlugin("com.android.application")) {
-                println("Android Application Gradle Plugin Version: " + com.android.application.class.getProtectionDomain().getCodeSource().location.path)
-            }
-        }
-        eol = eol.replaceAll(r"\\$", "")
+buildscript {
+    ext.kotlin_version = "2.0.20"
+    repositories {
+        google()
+        mavenCentral()
     }
+
+    dependencies {
+        classpath "com.android.tools.build:gradle:7.4.2"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+allprojects {
     repositories {
         google()
         mavenCentral()
     }
 }
 
-val flutterSdkPath = run {
-    val localPropertiesFile = localPropertiesFile ?: file("../../local.properties")
-    val localProperties = Properties()
-    if (localPropertiesFile.exists()) {
-        localPropertiesFile.withReader("UTF-8") { reader ->
-            localProperties.load(reader)
-        }
-    }
-    val flutterSdkPathProperty = localProperties.getProperty("flutter.sdk")
-    if (flutterSdkPathProperty != null) {
-        flutterSdkPathProperty
-    } else {
-        throw GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
-    }
+rootProject.buildDir = "../build"
+subprojects {
+    project.buildDir = rootProject.buildDir + "/$project.name"
 }
 
-plugins {
-    id("dev.flutter.flutter-plugin-loader") version "1.0.0"
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
 }
