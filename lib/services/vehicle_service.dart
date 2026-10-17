@@ -8,6 +8,8 @@ class VehicleService {
 
   List<Vehicle> _vehicles = [];
 
+  VehicleService();
+
   List<Vehicle> get vehicles => List.unmodifiable(_vehicles);
 
   /// 添加车辆
