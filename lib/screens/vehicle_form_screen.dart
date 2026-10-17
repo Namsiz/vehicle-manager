@@ -97,7 +97,7 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final mileage = double.tryParse(_mileage.text) ?? 0;
-    final battery = (double.tryParse(_battery.text) ?? 0).clamp(0, 100);
+    final battery = ((double.tryParse(_battery.text) ?? 0).clamp(0, 100)).toDouble();
     final range = double.tryParse(_range.text) ?? 0;
 
     final v = widget.vehicle;

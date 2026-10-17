@@ -126,7 +126,7 @@ class VehicleService {
     final v = getVehicleById(id);
     if (v == null) return;
     if (battery != null) {
-      v.battery = battery.clamp(0, 100);
+      v.battery = battery.clamp(0, 100).toDouble();
       v.range = (v.battery * 0.5).toDouble();
     }
     if (range != null) v.range = range;
