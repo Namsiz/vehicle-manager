@@ -25,6 +25,17 @@ jobs:
     - name: Get dependencies
       run: flutter pub get
 
+    - name: Recreate android platform files (clean)
+      run: |
+        rm -rf android
+        flutter create --platforms=android --org com.my --project-name vehicle_manager .
+
+    - name: Set app label to 我的小摩托
+      run: |
+        MANIFEST=android/app/src/main/AndroidManifest.xml
+        sed -i 's/android:label="vehicle_manager"/android:label="我的小摩托"/' "$MANIFEST"
+        grep -q 'android:label="我的小摩托"' "$MANIFEST" && echo "label set OK"
+
     - name: Build Debug APK
       run: flutter build apk --debug
 
