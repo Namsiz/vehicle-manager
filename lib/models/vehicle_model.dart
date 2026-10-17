@@ -15,7 +15,7 @@ class Vehicle {
   bool online; // 是否在线
   bool charging; // 是否充电中
   String location; // 最近位置
-  DateTime lastRide; // 最近骑行时间
+  DateTime? lastRide; // 最近骑行时间
 
   String? color;
   String? description;

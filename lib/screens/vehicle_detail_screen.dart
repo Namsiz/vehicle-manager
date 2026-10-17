@@ -190,8 +190,8 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
           _InfoRow(icon: Icons.tag, label: '车辆名称', value: _v.name),
           _InfoRow(icon: Icons.branding_watermark, label: '品牌', value: _v.brand),
           _InfoRow(icon: Icons.model_training, label: '型号', value: _v.model),
-          _InfoRow(icon: Icons.card, label: '车牌号', value: _v.plateNumber),
-          _InfoRow(icon: Icons.barcode, label: '车架号', value: _v.vin),
+          _InfoRow(icon: Icons.car_rental, label: '车牌号', value: _v.plateNumber),
+          _InfoRow(icon: Icons.qr_code, label: '车架号', value: _v.vin),
           _InfoRow(
               icon: Icons.calendar_month,
               label: '购买日期',

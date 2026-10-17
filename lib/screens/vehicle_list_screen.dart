@@ -211,7 +211,7 @@ class _VehicleCard extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    vehicle.charging ? Icons.battery_charging : Icons.battery_full,
+                    vehicle.charging ? Icons.charging_station : Icons.battery_full,
                     size: 18,
                     color: batteryColor,
                   ),
