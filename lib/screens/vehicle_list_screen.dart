@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:vehicle_manager/models/vehicle_model.dart';
 import 'package:vehicle_manager/services/vehicle_service.dart';
+import 'package:vehicle_manager/theme/app_theme.dart';
 
 class VehicleListScreen extends StatefulWidget {
   const VehicleListScreen({super.key});
@@ -18,17 +19,15 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
   void initState() {
     super.initState();
     _filteredVehicles = _vehicleService.vehicles;
-    _vehicleService.addListener(_onVehicleChanged);
   }
 
   @override
   void dispose() {
-    _vehicleService.removeListener(_onVehicleChanged);
     _searchController.dispose();
     super.dispose();
   }
 
-  void _onVehicleChanged() {
+  void _refreshFilter() {
     setState(() {
       _filteredVehicles = _searchController.text.isEmpty
           ? _vehicleService.vehicles
@@ -44,25 +43,28 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
     _showVehicleFormDialog(vehicle);
   }
 
-  Future<void> _showVehicleFormDialog(Vehicle? vehicle) async {
+  Future<void> _showVehicleFormDialog(Vehicle? existing) async {
     final formKey = GlobalKey<FormState>();
-    final nameController = TextEditingController(text: vehicle?.name ?? '');
-    final brandController = TextEditingController(text: vehicle?.brand ?? '');
-    final modelController = TextEditingController(text: vehicle?.model ?? '');
-    final plateController = TextEditingController(text: vehicle?.plateNumber ?? '');
-    final vinController = TextEditingController(text: vehicle?.vin ?? '');
+    final nameController = TextEditingController(text: existing?.name ?? '');
+    final brandController = TextEditingController(text: existing?.brand ?? '');
+    final modelController = TextEditingController(text: existing?.model ?? '');
+    final plateController =
+        TextEditingController(text: existing?.plateNumber ?? '');
+    final vinController = TextEditingController(text: existing?.vin ?? '');
+    final colorController =
+        TextEditingController(text: existing?.color ?? '');
+    final descController =
+        TextEditingController(text: existing?.description ?? '');
     final mileageController = TextEditingController(
-        text: vehicle?.mileage.toString() ?? '0');
-    final colorController = TextEditingController(text: vehicle?.color ?? '');
-    final descController = TextEditingController(text: vehicle?.description ?? '');
+        text: existing?.mileage.toString() ?? '0');
 
-    DateTime? selectedDate = vehicle?.purchaseDate;
-    double? selectedMileage = vehicle?.mileage;
+    DateTime? selectedDate = existing?.purchaseDate;
+    double? selectedMileage = existing?.mileage;
 
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(vehicle == null ? '添加新车辆' : '编辑车辆'),
+        title: Text(existing == null ? '添加新车辆' : '编辑车辆'),
         content: SingleChildScrollView(
           child: Form(
             key: formKey,
@@ -72,36 +74,38 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                 TextFormField(
                   controller: nameController,
                   decoration: const InputDecoration(labelText: '车辆名称'),
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? '请输入车辆名称' : null,
+                  validator: (v) =>
+                      (v == null || v.isEmpty) ? '请输入车辆名称' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: brandController,
                   decoration: const InputDecoration(labelText: '品牌'),
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? '请输入品牌' : null,
+                  validator: (v) => (v == null || v.isEmpty) ? '请输入品牌' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: modelController,
                   decoration: const InputDecoration(labelText: '型号'),
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? '请输入型号' : null,
+                  validator: (v) => (v == null || v.isEmpty) ? '请输入型号' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: plateController,
                   decoration: const InputDecoration(labelText: '车牌号'),
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? '请输入车牌号' : null,
+                  validator: (v) => (v == null || v.isEmpty) ? '请输入车牌号' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: vinController,
                   decoration: const InputDecoration(labelText: '车架号(VIN)'),
-                  validator: (value) =>
-                      value?.isEmpty ?? true ? '请输入车架号' : null,
+                  validator: (v) => (v == null || v.isEmpty) ? '请输入车架号' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: mileageController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: '里程(km)'),
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -124,55 +128,7 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                           setState(() => selectedDate = picked);
                         }
                       },
-                      child: const Text('选择日期'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '里程: ${selectedMileage?.toStringAsFixed(1) ?? '0.0'} km',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        final input = await showDialog<String>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('设置里程'),
-                            content: TextField(
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(labelText: '里程(km)'),
-                              controller: TextEditingController(
-                                  text: selectedMileage?.toStringAsFixed(1) ?? '0'),
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('取消'),
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  final value = double.tryParse(
-                                    TextEditingController(
-                                      text: selectedMileage?.toStringAsFixed(1) ?? '0',
-                                    ).text,
-                                  );
-                                  if (value != null && value >= 0) {
-                                    setState(() => selectedMileage = value);
-                                    Navigator.pop(context);
-                                  }
-                                },
-                                child: const Text('确定'),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                      child: const Text('设置里程'),
+                      child: const Text('选择'),
                     ),
                   ],
                 ),
@@ -199,8 +155,9 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
           ElevatedButton(
             onPressed: () {
               if (formKey.currentState!.validate()) {
-                final vehicle = Vehicle(
-                  id: vehicle?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+                final newVehicle = Vehicle(
+                  id: existing?.id ??
+                      DateTime.now().millisecondsSinceEpoch.toString(),
                   name: nameController.text,
                   brand: brandController.text,
                   model: modelController.text,
@@ -208,17 +165,19 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                   vin: vinController.text,
                   purchaseDate: selectedDate ?? DateTime.now(),
                   mileage: selectedMileage ?? 0,
-                  color: colorController.text.isEmpty ? null : colorController.text,
+                  color:
+                      colorController.text.isEmpty ? null : colorController.text,
                   description:
                       descController.text.isEmpty ? null : descController.text,
                 );
 
-                if (vehicle == null) {
-                  _vehicleService.addVehicle(vehicle);
+                if (existing == null) {
+                  _vehicleService.addVehicle(newVehicle);
                 } else {
-                  _vehicleService.updateVehicle(vehicle);
+                  _vehicleService.updateVehicle(newVehicle);
                 }
 
+                _refreshFilter();
                 Navigator.pop(context);
               }
             },
@@ -243,6 +202,7 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
           ElevatedButton(
             onPressed: () {
               _vehicleService.deleteVehicle(vehicle.id);
+              _refreshFilter();
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -257,7 +217,7 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('我的车辆'),
+        title: const Text('我的小摩托'),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
@@ -268,98 +228,73 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16),
             child: TextField(
               controller: _searchController,
-              decoration: InputDecoration(
+              onChanged: (_) => _refreshFilter(),
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
                 hintText: '搜索车辆...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
               ),
-              onChanged: (value) {
-                setState(() {
-                  _filteredVehicles = _searchController.text.isEmpty
-                      ? _vehicleService.vehicles
-                      : _vehicleService.searchVehicles(_searchController.text);
-                });
-              },
             ),
           ),
           Expanded(
             child: _filteredVehicles.isEmpty
                 ? Center(
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.directions_bike,
-                          size: 80,
-                          color: Colors.grey[400],
-                        ),
+                        const Icon(Icons.directions_bike, size: 64,
+                            color: AppTheme.textHint),
                         const SizedBox(height: 16),
-                        Text(
-                          '还没有车辆',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[600],
-                          ),
-                        ),
+                        const Text('暂无车辆',
+                            style: TextStyle(fontSize: 18, color: AppTheme.textSecondary)),
                         const SizedBox(height: 8),
-                        Text(
-                          '点击右上角添加第一辆车',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[500],
-                          ),
+                        TextButton(
+                          onPressed: _showAddVehicleDialog,
+                          child: const Text('添加第一辆车'),
                         ),
                       ],
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.all(16),
                     itemCount: _filteredVehicles.length,
                     itemBuilder: (context, index) {
                       final vehicle = _filteredVehicles[index];
                       return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 6),
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: Colors.blue[100],
-                            child: Icon(
-                              Icons.directions_bike,
-                              color: Colors.blue[700],
-                            ),
+                            backgroundColor: AppTheme.primaryColorLight,
+                            child: const Icon(Icons.directions_bike,
+                                color: AppTheme.primaryColor),
                           ),
-                          title: Text(
-                            vehicle.name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 4),
-                              Text('${vehicle.brand} ${vehicle.model}'),
-                              Text('车牌: ${vehicle.plateNumber}'),
-                              Text('里程: ${vehicle.mileage.toStringAsFixed(1)} km'),
-                            ],
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit, size: 20),
-                                onPressed: () => _showEditVehicleDialog(vehicle),
-                                color: Colors.blue,
+                          title: Text(vehicle.name,
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w600)),
+                          subtitle: Text(
+                              '${vehicle.brand} ${vehicle.model} · ${vehicle.plateNumber}'),
+                          trailing: PopupMenuButton(
+                            onSelected: (v) {
+                              if (v == 'edit') {
+                                _showEditVehicleDialog(vehicle);
+                              } else if (v == 'delete') {
+                                _showDeleteConfirmDialog(vehicle);
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Text('编辑'),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.delete, size: 20),
-                                onPressed: () => _showDeleteConfirmDialog(vehicle),
-                                color: Colors.red,
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Text('删除', style: TextStyle(color: Colors.red)),
                               ),
                             ],
                           ),
@@ -370,6 +305,10 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                   ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddVehicleDialog,
+        child: const Icon(Icons.add),
       ),
     );
   }
