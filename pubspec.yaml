@@ -9,7 +9,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  shared_preferences: ^2.2.0
   intl: ^0.18.1
 
 dev_dependencies:
@@ -19,12 +18,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
-  assets:
-    - assets/images/
-    - assets/icons/
-
-  fonts:
-    - family: CustomFont
-      fonts:
-        - asset: assets/fonts/YadeaFont.ttf
