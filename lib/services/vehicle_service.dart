@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:vehicle_manager/models/vehicle_model.dart';
 
-/// 车辆管理服务（内存持久化，简化版）
+/// 车辆管理服务
 class VehicleService {
   static const String _storageKey = 'vehicle_manager_data';
 
@@ -39,39 +39,78 @@ class VehicleService {
     }
   }
 
-  /// 获取车辆总数
   int get vehicleCount => _vehicles.length;
 
   /// 搜索车辆
   List<Vehicle> searchVehicles(String query) {
     if (query.isEmpty) return vehicles;
-    final lowerQuery = query.toLowerCase();
+    final q = query.toLowerCase();
     return _vehicles
         .where((v) =>
-            v.name.toLowerCase().contains(lowerQuery) ||
-            v.brand.toLowerCase().contains(lowerQuery) ||
-            v.model.toLowerCase().contains(lowerQuery) ||
-            v.plateNumber.toLowerCase().contains(lowerQuery))
+            v.name.toLowerCase().contains(q) ||
+            v.brand.toLowerCase().contains(q) ||
+            v.model.toLowerCase().contains(q) ||
+            v.plateNumber.toLowerCase().contains(q))
         .toList();
   }
 
-  /// 序列化为 JSON 字符串（用于持久化存储）
-  String toJson() =>
-      json.encode(_vehicles.map((v) => v.toMap()).toList());
+  // ===== 车辆操作（模拟，对标雅迪智行的控制能力）=====
 
-  /// 从 JSON 字符串恢复
+  /// 开始充电
+  void startCharge(String id) {
+    final v = getVehicleById(id);
+    if (v != null) {
+      v.charging = true;
+      v.online = true;
+    }
+  }
+
+  /// 停止充电
+  void stopCharge(String id) {
+    final v = getVehicleById(id);
+    if (v != null) {
+      v.charging = false;
+    }
+  }
+
+  /// 模拟寻车（闪灯鸣笛）——更新最近位置
+  void locateVehicle(String id) {
+    final v = getVehicleById(id);
+    if (v != null) {
+      v.online = true;
+      v.location =
+          v.location.isEmpty ? '已定位到当前位置' : '已在${v.location}定位';
+    }
+  }
+
+  /// 模拟充电动画：提升电量与续航
+  void simulateChargeTick(String id) {
+    final v = getVehicleById(id);
+    if (v == null || !v.charging) return;
+    v.battery = (v.battery + 2).clamp(0, 100);
+    v.range = (v.battery * 0.5).toDouble(); // 粗略续航估算
+    if (v.battery >= 100) {
+      v.charging = false;
+    }
+  }
+
+  /// 序列化
+  String toJson() => json.encode(_vehicles.map((v) => v.toMap()).toList());
+
+  /// 从 JSON 恢复
   static VehicleService fromJson(String raw) {
     final svc = VehicleService();
     try {
       final List<dynamic> list = json.decode(raw);
-      svc._vehicles = list.map((item) => Vehicle.fromMap(item)).toList();
+      svc._vehicles =
+          list.map((item) => Vehicle.fromMap(item as Map<String, dynamic>)).toList();
     } catch (e) {
       debugPrint('解析车辆数据失败: $e');
     }
     return svc;
   }
 
-  /// 创建示例数据
+  /// 示例数据
   factory VehicleService.demo() {
     final svc = VehicleService();
     svc._vehicles = [
@@ -80,12 +119,35 @@ class VehicleService {
         name: '我的小摩托',
         brand: '我的',
         model: '小摩托',
-        plateNumber: 'YUE·A12345',
-        vin: 'DEMO0000000000001',
+        plateNumber: '粤A·D12345',
+        vin: 'MYMOTO0000000001',
         purchaseDate: DateTime(2024, 6, 1),
-        mileage: 1200,
+        mileage: 1230,
+        battery: 78,
+        range: 39,
+        online: true,
+        charging: false,
+        location: '家中楼下',
+        lastRide: DateTime.now().subtract(const Duration(hours: 3)),
         color: '红色',
-        description: '示例车辆数据',
+        description: '通勤主力',
+      ),
+      Vehicle(
+        id: 'demo-2',
+        name: '备用车',
+        brand: '我的',
+        model: '小摩托·轻',
+        plateNumber: '粤A·E67890',
+        vin: 'MYMOTO0000000002',
+        purchaseDate: DateTime(2023, 11, 15),
+        mileage: 4210,
+        battery: 12,
+        range: 6,
+        online: false,
+        charging: true,
+        location: '公司充电桩',
+        lastRide: DateTime.now().subtract(const Duration(days: 2)),
+        color: '白色',
       ),
     ];
     return svc;
