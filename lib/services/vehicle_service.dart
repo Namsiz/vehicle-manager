@@ -1,20 +1,52 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vehicle_manager/models/vehicle_model.dart';
 
-/// 车辆管理服务
+/// 车辆管理服务（带本地持久化）
 class VehicleService {
   static const String _storageKey = 'vehicle_manager_data';
 
-  List<Vehicle> _vehicles = [];
+  final List<Vehicle> _vehicles = [];
+  SharedPreferences? _prefs;
 
-  VehicleService();
+  VehicleService() {
+    // 构造即加载 demo 兜底，避免首屏空白；init() 会用真实本地数据覆盖
+    _loadDemo();
+  }
+
+  /// 初始化：从本地存储加载真实数据（若已有则覆盖 demo）
+  Future<void> init() async {
+    _prefs = await SharedPreferences.getInstance();
+    final raw = _prefs!.getString(_storageKey);
+    if (raw != null) {
+      _vehicles.clear();
+      try {
+        final list = json.decode(raw) as List;
+        for (final item in list) {
+          _vehicles.add(Vehicle.fromMap(item as Map<String, dynamic>));
+        }
+      } catch (e) {
+        debugPrint('解析车辆数据失败: $e');
+      }
+    }
+    // raw == null（从未保存过）则保留构造时的 demo 兜底数据
+    _persist();
+  }
 
   List<Vehicle> get vehicles => List.unmodifiable(_vehicles);
+
+  /// 持久化到本地
+  void _persist() {
+    final p = _prefs;
+    if (p == null) return;
+    p.setString(_storageKey, toJson());
+  }
 
   /// 添加车辆
   void addVehicle(Vehicle vehicle) {
     _vehicles.insert(0, vehicle);
+    _persist();
   }
 
   /// 更新车辆
@@ -22,12 +54,14 @@ class VehicleService {
     final index = _vehicles.indexWhere((v) => v.id == vehicle.id);
     if (index != -1) {
       _vehicles[index] = vehicle;
+      _persist();
     }
   }
 
   /// 删除车辆
   void deleteVehicle(String id) {
     _vehicles.removeWhere((v) => v.id == id);
+    _persist();
   }
 
   /// 根据ID获取车辆
@@ -56,64 +90,58 @@ class VehicleService {
 
   // ===== 车辆操作（模拟，对标雅迪智行的控制能力）=====
 
-  /// 开始充电
   void startCharge(String id) {
     final v = getVehicleById(id);
     if (v != null) {
       v.charging = true;
       v.online = true;
+      _persist();
     }
   }
 
-  /// 停止充电
   void stopCharge(String id) {
     final v = getVehicleById(id);
     if (v != null) {
       v.charging = false;
+      _persist();
     }
   }
 
-  /// 模拟寻车（闪灯鸣笛）——更新最近位置
   void locateVehicle(String id) {
     final v = getVehicleById(id);
     if (v != null) {
       v.online = true;
       v.location =
           v.location.isEmpty ? '已定位到当前位置' : '已在${v.location}定位';
+      _persist();
     }
   }
 
-  /// 模拟充电动画：提升电量与续航
-  void simulateChargeTick(String id) {
+  /// 手动设置车辆状态（电量/续航/位置/在线）
+  void updateState(String id,
+      {double? battery,
+      double? range,
+      String? location,
+      bool? online}) {
     final v = getVehicleById(id);
-    if (v == null || !v.charging) return;
-    v.battery = (v.battery + 2).clamp(0, 100);
-    v.range = (v.battery * 0.5).toDouble(); // 粗略续航估算
-    if (v.battery >= 100) {
-      v.charging = false;
+    if (v == null) return;
+    if (battery != null) {
+      v.battery = battery.clamp(0, 100);
+      v.range = (v.battery * 0.5).toDouble();
     }
+    if (range != null) v.range = range;
+    if (location != null) v.location = location;
+    if (online != null) v.online = online;
+    _persist();
   }
 
-  /// 序列化
+  // ===== 序列化 =====
+
   String toJson() => json.encode(_vehicles.map((v) => v.toMap()).toList());
 
-  /// 从 JSON 恢复
-  static VehicleService fromJson(String raw) {
-    final svc = VehicleService();
-    try {
-      final List<dynamic> list = json.decode(raw);
-      svc._vehicles =
-          list.map((item) => Vehicle.fromMap(item as Map<String, dynamic>)).toList();
-    } catch (e) {
-      debugPrint('解析车辆数据失败: $e');
-    }
-    return svc;
-  }
-
-  /// 示例数据
-  factory VehicleService.demo() {
-    final svc = VehicleService();
-    svc._vehicles = [
+  /// 示例数据（首屏兜底）
+  void _loadDemo() {
+    _vehicles.addAll([
       Vehicle(
         id: 'demo-1',
         name: '我的小摩托',
@@ -149,7 +177,6 @@ class VehicleService {
         lastRide: DateTime.now().subtract(const Duration(days: 2)),
         color: '白色',
       ),
-    ];
-    return svc;
+    ]);
   }
 }

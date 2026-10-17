@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:vehicle_manager/models/vehicle_model.dart';
 import 'package:vehicle_manager/screens/vehicle_detail_screen.dart';
+import 'package:vehicle_manager/screens/vehicle_form_screen.dart';
 import 'package:vehicle_manager/services/vehicle_service.dart';
 import 'package:vehicle_manager/theme/app_theme.dart';
 
@@ -12,14 +13,24 @@ class VehicleListScreen extends StatefulWidget {
 }
 
 class _VehicleListScreenState extends State<VehicleListScreen> {
-  final VehicleService _vehicleService = VehicleService.demo();
+  final VehicleService _vehicleService = VehicleService();
   final TextEditingController _searchController = TextEditingController();
   List<Vehicle> _filteredVehicles = [];
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _filteredVehicles = _vehicleService.vehicles;
+    _load();
+  }
+
+  Future<void> _load() async {
+    await _vehicleService.init();
+    if (!mounted) return;
+    setState(() {
+      _filteredVehicles = _vehicleService.vehicles;
+      _loading = false;
+    });
   }
 
   @override
@@ -34,6 +45,62 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
           ? _vehicleService.vehicles
           : _vehicleService.searchVehicles(_searchController.text);
     });
+  }
+
+  Future<void> _addVehicle() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VehicleFormScreen(
+          service: _vehicleService,
+          onDone: _refresh,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editVehicle(Vehicle v) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VehicleFormScreen(
+          service: _vehicleService,
+          vehicle: v,
+          onDone: _refresh,
+        ),
+      ),
+    );
+  }
+
+  void _deleteVehicle(Vehicle v) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除车辆'),
+        content: Text('确定删除「${v.name}」吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
+            onPressed: () {
+              _vehicleService.deleteVehicle(v.id);
+              _refresh();
+              Navigator.pop(ctx);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('已删除')),
+                );
+              }
+            },
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _openDetail(Vehicle v) {
@@ -69,7 +136,8 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
                       content: TextField(
                         autofocus: true,
                         controller: c,
-                        decoration: const InputDecoration(hintText: '名称 / 品牌 / 车牌'),
+                        decoration:
+                            const InputDecoration(hintText: '名称 / 品牌 / 车牌'),
                       ),
                       actions: [
                         TextButton(
@@ -91,48 +159,59 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (_) => _refresh(),
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: '搜索车辆...',
-              ),
-            ),
-          ),
-          Expanded(
-            child: _filteredVehicles.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.directions_bike,
-                            size: 72, color: AppTheme.textHint),
-                        const SizedBox(height: 16),
-                        const Text('暂无车辆',
-                            style: TextStyle(
-                                fontSize: 18, color: AppTheme.textSecondary)),
-                        const SizedBox(height: 4),
-                        Text('共 ${_vehicleService.vehicleCount} 辆车',
-                            style:
-                                const TextStyle(color: AppTheme.textHint)),
-                      ],
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (_) => _refresh(),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      hintText: '搜索车辆...',
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 96),
-                    itemCount: _filteredVehicles.length,
-                    itemBuilder: (context, index) {
-                      final v = _filteredVehicles[index];
-                      return _VehicleCard(vehicle: v, onTap: () => _openDetail(v));
-                    },
                   ),
-          ),
-        ],
+                ),
+                Expanded(
+                  child: _filteredVehicles.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.directions_bike,
+                                  size: 72, color: AppTheme.textHint),
+                              const SizedBox(height: 16),
+                              const Text('暂无车辆',
+                                  style: TextStyle(
+                                      fontSize: 18,
+                                      color: AppTheme.textSecondary)),
+                              const SizedBox(height: 4),
+                              Text('共 ${_vehicleService.vehicleCount} 辆车',
+                                  style: const TextStyle(
+                                      color: AppTheme.textHint)),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.only(bottom: 96),
+                          itemCount: _filteredVehicles.length,
+                          itemBuilder: (context, index) {
+                            final v = _filteredVehicles[index];
+                            return _VehicleCard(
+                                vehicle: v,
+                                onTap: () => _openDetail(v),
+                                onEdit: () => _editVehicle(v),
+                                onDelete: () => _deleteVehicle(v));
+                          },
+                        ),
+                ),
+              ],
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _addVehicle,
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -141,8 +220,15 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
 class _VehicleCard extends StatelessWidget {
   final Vehicle vehicle;
   final VoidCallback onTap;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
-  const _VehicleCard({required this.vehicle, required this.onTap});
+  const _VehicleCard({
+    required this.vehicle,
+    required this.onTap,
+    this.onEdit,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -204,6 +290,31 @@ class _VehicleCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                    if (onEdit != null)
+                      PopupMenuButton<String>(
+                        tooltip: "更多操作",
+                        onSelected: (v) {
+                          if (v == "edit") {
+                            onEdit!();
+                          } else if (v == "delete" && onDelete != null) {
+                            onDelete!();
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: "edit",
+                            child: Text("编辑"),
+                          ),
+                          if (onDelete != null)
+                            PopupMenuItem(
+                              value: "delete",
+                              child: Text(
+                                "删除",
+                                style: TextStyle(color: AppTheme.errorColor),
+                              ),
+                            ),
+                        ],
+                      ),
                 ],
               ),
               const SizedBox(height: 14),
