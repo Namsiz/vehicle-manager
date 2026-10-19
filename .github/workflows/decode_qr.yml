@@ -1,0 +1,79 @@
+name: Decode QR image
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'qrscan/**'
+
+jobs:
+  decode:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install zbar
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y zbar-tools python3-pip
+          pip3 install --quiet opencv-python-headless numpy
+
+      - name: Try direct zbarimg
+        run: |
+          echo "=== zbarimg direct ==="
+          zbarimg --raw -q qrscan/img_qr.jpg || echo "DIRECT_FAIL"
+
+      - name: Try preprocessing + zbarimg
+        run: |
+          echo "=== enhanced attempts ==="
+          python3 - <<'PY'
+          import cv2, numpy as np, subprocess, os
+          img = cv2.imread('qrscan/img_qr.jpg')
+          h, w = img.shape[:2]
+          print(f'size={w}x{h}')
+          # 旋转 90 度（照片可能横竖颠倒）
+          for name, rot in [('rot90cw', cv2.ROTATE_90_CLOCKWISE),
+                            ('rot90ccw', cv2.ROTATE_90_COUNTERCLOCKWISE),
+                            ('rot180', cv2.ROTATE_180),
+                            ('orig', None)]:
+              im = img if rot is None else cv2.rotate(img, rot)
+              # 放大 1.5x
+              im2 = cv2.resize(im, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_CUBIC)
+              # 灰度 + 自适应阈值
+              gray = cv2.cvtColor(im2, cv2.COLOR_BGR2GRAY)
+              for mode in ['otsu', 'adaptive']:
+                  if mode == 'otsu':
+                      _, bw = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                  else:
+                      bw = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 51, 10)
+                  fn = f'qrscan/try_{name}_{mode}.png'
+                  cv2.imwrite(fn, bw)
+                  r = subprocess.run(['zbarimg', '--raw', '-q', fn], capture_output=True, text=True)
+                  out = r.stdout.strip()
+                  if out:
+                      print(f'RESULT[{name}/{mode}]: {out}')
+                      open('qrscan/decoded.txt', 'w').write(out)
+                      raise SystemExit(0)
+          print('ALL_PREPROCESS_FAIL')
+          PY
+          echo "exit=$?"
+
+      - name: Show decoded result
+        if: always()
+        run: |
+          if [ -f qrscan/decoded.txt ]; then
+            echo "=================== DECODED ==================="
+            cat qrscan/decoded.txt
+            echo "==============================================="
+          else
+            echo "NO_DECODE_FILE"
+          fi
+
+      - name: Upload decoded result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qr-decoded
+          path: qrscan/decoded.txt
+          if-no-files-found: ignore
