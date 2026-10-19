@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:vehicle_manager/models/vehicle_model.dart';
+import 'package:vehicle_manager/screens/about_screen.dart';
 import 'package:vehicle_manager/screens/vehicle_list_screen.dart';
 import 'package:vehicle_manager/theme/app_theme.dart';
 

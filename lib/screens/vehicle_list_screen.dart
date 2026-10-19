@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:vehicle_manager/screens/about_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:vehicle_manager/models/vehicle_model.dart';
 import 'package:vehicle_manager/screens/vehicle_detail_screen.dart';
@@ -162,6 +163,16 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
               );
             },
           ),
+            IconButton(
+              icon: const Icon(Icons.info_outline),
+              tooltip: '关于',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AboutScreen()),
+                );
+              },
+            ),
         ],
       ),
       body: _loading
