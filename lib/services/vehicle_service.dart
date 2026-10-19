@@ -145,25 +145,25 @@ class VehicleService {
 
   String toJson() => json.encode(_vehicles.map((v) => v.toMap()).toList());
 
-  /// 示例数据（首屏兜底；已预置车贴二维码解析出的真实 VIN）
+  /// 示例数据（首屏兜底；已预置从雅迪智行 App 实时采集的真实车辆数据）
   void _loadDemo() {
     _vehicles.addAll([
       Vehicle(
         id: 'demo-1',
-        name: '我的小摩托',
+        name: 'B10-G',
         brand: '雅迪',
-        model: '电动车',
+        model: 'B10-G-标准版双鼓AC-T',
         plateNumber: '待上牌',
         vin: '399722534047063',
         vinSecret: '4002910179',
         purchaseDate: DateTime(2024, 6, 1),
-        mileage: 1230,
-        battery: 78,
-        range: 39,
+        mileage: 747.2,
+        battery: 76,
+        range: 53.4,
         online: true,
         charging: false,
-        location: '家中楼下',
-        lastRide: DateTime.now().subtract(const Duration(hours: 3)),
+        location: '龙岗区清祥路1号宝能科技园-南区',
+        lastRide: DateTime.now().subtract(const Duration(minutes: 30)),
         color: '',
         description: '扫码绑定：399722534047063/4002910179',
       ),

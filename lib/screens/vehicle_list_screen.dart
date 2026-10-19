@@ -1,12 +1,13 @@
-import 'package:flutter/foundation.dart';
-import 'package:vehicle_manager/screens/about_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:vehicle_manager/models/vehicle_model.dart';
+import 'package:vehicle_manager/screens/about_screen.dart';
 import 'package:vehicle_manager/screens/vehicle_detail_screen.dart';
 import 'package:vehicle_manager/screens/vehicle_form_screen.dart';
+import 'package:vehicle_manager/screens/vehicle_settings_screen.dart';
 import 'package:vehicle_manager/services/vehicle_service.dart';
 import 'package:vehicle_manager/theme/app_theme.dart';
 
+/// 爱车主页：仿雅迪智行布局，展示实时车辆状态
 class VehicleListScreen extends StatefulWidget {
   const VehicleListScreen({super.key});
 
@@ -122,6 +123,15 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
     );
   }
 
+  void _openSettings(Vehicle v) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VehicleSettingsScreen(vehicle: v),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -163,68 +173,35 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
               );
             },
           ),
-            IconButton(
-              icon: const Icon(Icons.info_outline),
-              tooltip: '关于',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AboutScreen()),
-                );
-              },
-            ),
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: '关于',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AboutScreen()),
+              );
+            },
+          ),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (_) => _refresh(),
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.search),
-                      hintText: '搜索车辆...',
-                    ),
-                  ),
+          : _filteredVehicles.isEmpty
+              ? _EmptyView(onAdd: _addVehicle)
+              : ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 96),
+                  itemCount: _filteredVehicles.length,
+                  itemBuilder: (context, index) {
+                    final v = _filteredVehicles[index];
+                    return _VehicleHomeCard(
+                        vehicle: v,
+                        onTap: () => _openDetail(v),
+                        onEdit: () => _editVehicle(v),
+                        onDelete: () => _deleteVehicle(v),
+                        onSettings: () => _openSettings(v));
+                  },
                 ),
-                Expanded(
-                  child: _filteredVehicles.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.directions_bike,
-                                  size: 72, color: AppTheme.textHint),
-                              const SizedBox(height: 16),
-                              const Text('暂无车辆',
-                                  style: TextStyle(
-                                      fontSize: 18,
-                                      color: AppTheme.textSecondary)),
-                              const SizedBox(height: 4),
-                              Text('共 ${_vehicleService.vehicleCount} 辆车',
-                                  style: const TextStyle(
-                                      color: AppTheme.textHint)),
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.only(bottom: 96),
-                          itemCount: _filteredVehicles.length,
-                          itemBuilder: (context, index) {
-                            final v = _filteredVehicles[index];
-                            return _VehicleCard(
-                                vehicle: v,
-                                onTap: () => _openDetail(v),
-                                onEdit: () => _editVehicle(v),
-                                onDelete: () => _deleteVehicle(v));
-                          },
-                        ),
-                ),
-              ],
-            ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addVehicle,
         child: const Icon(Icons.add),
@@ -233,236 +210,313 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
   }
 }
 
-class _VehicleCard extends StatelessWidget {
-  final Vehicle vehicle;
-  final VoidCallback onTap;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
-
-  const _VehicleCard({
-    required this.vehicle,
-    required this.onTap,
-    this.onEdit,
-    this.onDelete,
-  });
+class _EmptyView extends StatelessWidget {
+  final VoidCallback onAdd;
+  const _EmptyView({required this.onAdd});
 
   @override
   Widget build(BuildContext context) {
-    final Color batteryColor = vehicle.battery >= 60
-        ? AppTheme.successColor
-        : vehicle.battery >= 20
-            ? AppTheme.warningColor
-            : AppTheme.errorColor;
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: AppTheme.primaryColorLight,
-                    child: Icon(
-                      vehicle.charging ? Icons.charging_station : Icons.directions_bike,
-                      color: vehicle.charging
-                          ? AppTheme.accentColor
-                          : AppTheme.primaryColor,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              vehicle.name,
-                              style: const TextStyle(
-                                  fontSize: 17, fontWeight: FontWeight.w700),
-                            ),
-                            const SizedBox(width: 8),
-                            _StatusChip(vehicle: vehicle),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${vehicle.brand} ${vehicle.model}  ·  ${vehicle.plateNumber}',
-                          style: const TextStyle(
-                              fontSize: 13, color: AppTheme.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                    if (onEdit != null)
-                      PopupMenuButton<String>(
-                        tooltip: "更多操作",
-                        onSelected: (v) {
-                          if (v == "edit") {
-                            onEdit!();
-                          } else if (v == "delete" && onDelete != null) {
-                            onDelete!();
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: "edit",
-                            child: Text("编辑"),
-                          ),
-                          if (onDelete != null)
-                            PopupMenuItem(
-                              value: "delete",
-                              child: Text(
-                                "删除",
-                                style: TextStyle(color: AppTheme.errorColor),
-                              ),
-                            ),
-                        ],
-                      ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              // 电量条
-              Row(
-                children: [
-                  Icon(
-                    vehicle.charging ? Icons.charging_station : Icons.battery_full,
-                    size: 18,
-                    color: batteryColor,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                        value: vehicle.battery / 100,
-                        minHeight: 10,
-                        backgroundColor: const Color(0xFFEEEEEE),
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(batteryColor),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${vehicle.battery.round()}%',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: batteryColor),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  _InfoTag(
-                      label: '续航',
-                      value: '${vehicle.range.round()} km',
-                      icon: Icons.rocket_launch),
-                  const SizedBox(width: 16),
-                  _InfoTag(
-                      label: '总里程',
-                      value: '${vehicle.mileage.round()} km',
-                      icon: Icons.speed),
-                  const SizedBox(width: 16),
-                  _InfoTag(
-                      label: '位置',
-                      value: vehicle.location.isEmpty
-                          ? '未知'
-                          : vehicle.location,
-                      icon: Icons.location_on),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  final Vehicle vehicle;
-  const _StatusChip({required this.vehicle});
-
-  @override
-  Widget build(BuildContext context) {
-    Color dot;
-    String text;
-    if (vehicle.charging) {
-      dot = AppTheme.accentColor;
-      text = '充电中';
-    } else if (vehicle.online) {
-      dot = AppTheme.successColor;
-      text = '在线';
-    } else {
-      dot = AppTheme.textHint;
-      text = '离线';
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: dot.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
+    return Center(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 4),
-          Text(text,
-              style: TextStyle(fontSize: 11, color: dot, fontWeight: FontWeight.w600)),
+          const Icon(Icons.directions_bike, size: 72, color: AppTheme.textHint),
+          const SizedBox(height: 16),
+          const Text('暂无车辆',
+              style: TextStyle(fontSize: 18, color: AppTheme.textSecondary)),
+          const SizedBox(height: 8),
+          TextButton(onPressed: onAdd, child: const Text('添加车辆')),
         ],
       ),
     );
   }
 }
 
-class _InfoTag extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  const _InfoTag({required this.label, required this.value, required this.icon});
+/// 爱车主页卡片：仿雅迪智行（电量% + 状态 + 续航 + 位置 + 总里程 + 快捷操作）
+class _VehicleHomeCard extends StatelessWidget {
+  final Vehicle vehicle;
+  final VoidCallback onTap;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final VoidCallback onSettings;
+
+  const _VehicleHomeCard({
+    required this.vehicle,
+    required this.onTap,
+    required this.onSettings,
+    this.onEdit,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: AppTheme.primaryColor),
-            const SizedBox(width: 3),
-            Text(label,
-                style:
-                    const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-          ],
+    final batteryColor = vehicle.battery >= 60
+        ? AppTheme.successColor
+        : vehicle.battery >= 20
+            ? AppTheme.warningColor
+            : AppTheme.errorColor;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 昵称 + 状态
+          Row(
+            children: [
+              Expanded(
+                child: Text(vehicle.name,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w800)),
+              ),
+              PopupMenuButton<String>(
+                tooltip: '更多操作',
+                onSelected: (v) {
+                  if (v == 'edit' && onEdit != null) {
+                    onEdit!();
+                  } else if (v == 'delete' && onDelete != null) {
+                    onDelete!();
+                  }
+                },
+                itemBuilder: (context) => [
+                  if (onEdit != null)
+                    const PopupMenuItem(value: 'edit', child: Text('编辑')),
+                  if (onDelete != null)
+                    PopupMenuItem(
+                        value: 'delete',
+                        child: Text('删除',
+                            style: TextStyle(color: AppTheme.errorColor))),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // 顶部渐变卡片：电量 + 状态 + 续航
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: AppTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 84,
+                            height: 84,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Container(
+                                  width: 72,
+                                  height: 72,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white
+                                        .withValues(alpha: 0.15),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 72,
+                                  height: 72,
+                                  child: CircularProgressIndicator(
+                                    value: vehicle.battery / 100,
+                                    strokeWidth: 6,
+                                    backgroundColor:
+                                        Colors.white.withValues(alpha: 0.2),
+                                    valueColor: const AlwaysStoppedAnimation(
+                                        Colors.white),
+                                  ),
+                                ),
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      '${vehicle.battery.round()}%',
+                                      style: const TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.white),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                vehicle.charging
+                                    ? '充电中'
+                                    : vehicle.online
+                                        ? '已开机'
+                                        : '已锁车',
+                                style: TextStyle(
+                                    color: Colors.white
+                                        .withValues(alpha: 0.95),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '续航 ${vehicle.range.toStringAsFixed(1)}km',
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          // 位置 + 总里程
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on,
+                            size: 14, color: AppTheme.primaryColor),
+                        const SizedBox(width: 4),
+                        const Text('爱车位置',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondary)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      vehicle.location.isEmpty ? '未知' : vehicle.location,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text('总里程',
+                      style: TextStyle(
+                          fontSize: 12, color: AppTheme.textSecondary)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${vehicle.mileage.toStringAsFixed(1)} km',
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // 快捷操作行：开关机 / 车锁 / 寻车 / 车辆详情
+          Row(
+            children: [
+              _ActionButton(
+                  icon: Icons.power_settings_new, label: '开关机', onTap: () {}),
+              _ActionButton(
+                  icon: Icons.lock_outline, label: '车锁', onTap: () {}),
+              _ActionButton(
+                  icon: Icons.location_searching, label: '寻车', onTap: () {}),
+              _ActionButton(
+                  icon: Icons.chevron_right, label: '车辆详情', onTap: onTap),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // 设置入口
+          ListTile(
+            tileColor: const Color(0xFFF7F8FA),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            leading: const Icon(Icons.settings_outlined,
+                color: AppTheme.primaryColor),
+            title: const Text('车辆设置',
+                style: TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: onSettings,
+          ),
+          const SizedBox(height: 6),
+          ListTile(
+            tileColor: const Color(0xFFF7F8FA),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            leading: const Icon(Icons.bluetooth,
+                color: AppTheme.primaryColor),
+            title: const Text('蓝牙钥匙',
+                style: TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {},
+          ),
+          const SizedBox(height: 6),
+          ListTile(
+            tileColor: const Color(0xFFF7F8FA),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            leading: const Icon(Icons.group_outlined,
+                color: AppTheme.primaryColor),
+            title: const Text('亲友用车',
+                style: TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {},
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _ActionButton(
+      {required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Column(
+            children: [
+              Icon(icon, color: AppTheme.primaryColor, size: 24),
+              const SizedBox(height: 6),
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 12, color: AppTheme.textPrimary)),
+            ],
+          ),
         ),
-        const SizedBox(height: 2),
-        Text(value,
-            style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary)),
-      ],
+      ),
     );
   }
 }
