@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:vehicle_manager/models/vehicle_model.dart';
 import 'package:vehicle_manager/screens/vehicle_detail_screen.dart';
@@ -25,7 +26,11 @@ class _VehicleListScreenState extends State<VehicleListScreen> {
   }
 
   Future<void> _load() async {
-    await _vehicleService.init();
+    try {
+      await _vehicleService.init();
+    } catch (e) {
+      debugPrint('加载车辆数据失败: $e');
+    }
     if (!mounted) return;
     setState(() {
       _filteredVehicles = _vehicleService.vehicles;

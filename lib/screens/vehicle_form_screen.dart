@@ -3,7 +3,7 @@ import 'package:vehicle_manager/models/vehicle_model.dart';
 import 'package:vehicle_manager/services/vehicle_service.dart';
 import 'package:vehicle_manager/theme/app_theme.dart';
 
-/// 添加 / 编辑车辆表单
+/// 添加 / 编辑车辆表单（支持粘贴二维码内容 "VIN/密码" 自动填入）
 class VehicleFormScreen extends StatefulWidget {
   final VehicleService service;
   final Vehicle? vehicle; // null = 新增
@@ -27,6 +27,7 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
   late final TextEditingController _model;
   late final TextEditingController _plate;
   late final TextEditingController _vin;
+  late final TextEditingController _vinSecret;
   late final TextEditingController _mileage;
   late final TextEditingController _battery;
   late final TextEditingController _range;
@@ -38,6 +39,7 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
   bool _online = false;
   bool _charging = false;
   late bool _isEdit;
+  String? _qrRaw; // 保存原始二维码内容
 
   @override
   void initState() {
@@ -49,6 +51,7 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
     _model = TextEditingController(text: v?.model ?? '');
     _plate = TextEditingController(text: v?.plateNumber ?? '');
     _vin = TextEditingController(text: v?.vin ?? '');
+    _vinSecret = TextEditingController(text: v?.vinSecret ?? '');
     _mileage = TextEditingController(
         text: v == null ? '' : v.mileage.round().toString());
     _battery = TextEditingController(
@@ -70,6 +73,7 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
     _model.dispose();
     _plate.dispose();
     _vin.dispose();
+    _vinSecret.dispose();
     _mileage.dispose();
     _battery.dispose();
     _range.dispose();
@@ -80,6 +84,79 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
   }
 
   String? _req(String? v) => (v == null || v.isEmpty) ? '必填项' : null;
+
+  /// 解析雅迪车贴二维码内容：格式 "VIN/密码"
+  /// 例：399722534047063/4002910179
+  void _applyQrText(String raw) {
+    final text = raw.trim();
+    if (text.isEmpty) return;
+    _qrRaw = text;
+
+    String? vin;
+    String? secret;
+
+    if (text.contains('/')) {
+      final parts = text.split('/');
+      vin = parts[0].trim();
+      secret = parts.length > 1 ? parts[1].trim() : null;
+    } else if (text.length >= 15 && RegExp(r'^\d+$').hasMatch(text)) {
+      // 只有 VIN
+      vin = text;
+    }
+
+    if (vin != null && vin.isNotEmpty) {
+      _vin.text = vin;
+    }
+    if (secret != null && secret.isNotEmpty) {
+      _vinSecret.text = secret;
+    }
+    // 默认名称
+    if (_name.text.isEmpty) {
+      _name.text = '我的小摩托';
+    }
+    setState(() {});
+  }
+
+  /// 扫码按钮：调起相机扫码（若平台支持）或粘贴输入
+  Future<void> _scanQr() async {
+    final c = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+            title: const Text('输入车辆二维码内容'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '扫车贴二维码会得到类似：\n399722534047063/4002910179\n'
+                  '（用相机/微信扫码后复制到这里粘贴）',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: c,
+                  autofocus: true,
+                  decoration:
+                      const InputDecoration(labelText: 'VIN/密码'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('取消'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+    );
+    if (ok == true) {
+      _applyQrText(c.text);
+    }
+  }
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -97,7 +174,8 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final mileage = double.tryParse(_mileage.text) ?? 0;
-    final battery = ((double.tryParse(_battery.text) ?? 0).clamp(0, 100)).toDouble();
+    final battery =
+        ((double.tryParse(_battery.text) ?? 0).clamp(0, 100)).toDouble();
     final range = double.tryParse(_range.text) ?? 0;
 
     final v = widget.vehicle;
@@ -108,6 +186,7 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
       model: _model.text.trim(),
       plateNumber: _plate.text.trim(),
       vin: _vin.text.trim(),
+      vinSecret: _vinSecret.text.trim(),
       purchaseDate: _purchaseDate,
       mileage: mileage,
       battery: battery,
@@ -138,6 +217,40 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // 扫码/粘贴区
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColorLight,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.qr_code_scanner,
+                          color: AppTheme.primaryColor),
+                      const SizedBox(width: 8),
+                      const Text('扫车贴二维码绑定',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.primaryColor)),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: _scanQr,
+                        child: const Text('粘贴二维码内容'),
+                      ),
+                    ],
+                  ),
+                  if (_qrRaw != null)
+                    Text('已识别：$_qrRaw',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppTheme.textSecondary)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             _SectionLabel('基本信息'),
             TextFormField(
               controller: _name,
@@ -165,7 +278,15 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _vin,
-              decoration: const InputDecoration(labelText: '车架号(VIN) *'),
+              decoration:
+                  const InputDecoration(labelText: '车架号(VIN) *'),
+              validator: _req,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _vinSecret,
+              decoration:
+                  const InputDecoration(labelText: 'VIN密码 *'),
               validator: _req,
             ),
             const SizedBox(height: 12),
@@ -203,13 +324,13 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
             TextFormField(
               controller: _range,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: '估算续航(km)'),
+              decoration:
+                  const InputDecoration(labelText: '估算续航(km)'),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _location,
-              decoration:
-                  const InputDecoration(labelText: '最近位置'),
+              decoration: const InputDecoration(labelText: '最近位置'),
             ),
             const SizedBox(height: 12),
             Row(
@@ -219,8 +340,7 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
                     value: _online,
                     onChanged: (b) => setState(() => _online = b),
                     title: const Text('在线'),
-                    secondary:
-                        const Icon(Icons.cloud_done_outlined),
+                    secondary: const Icon(Icons.cloud_done_outlined),
                   ),
                 ),
                 Expanded(
@@ -228,8 +348,7 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
                     value: _charging,
                     onChanged: (b) => setState(() => _charging = b),
                     title: const Text('充电中'),
-                    secondary:
-                        const Icon(Icons.charging_station),
+                    secondary: const Icon(Icons.charging_station),
                   ),
                 ),
               ],
@@ -243,8 +362,7 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
             TextFormField(
               controller: _desc,
               maxLines: 3,
-              decoration:
-                  const InputDecoration(labelText: '备注'),
+              decoration: const InputDecoration(labelText: '备注'),
             ),
             const SizedBox(height: 24),
             SizedBox(

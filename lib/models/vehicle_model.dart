@@ -6,6 +6,7 @@ class Vehicle {
   final String model;
   final String plateNumber;
   final String vin;
+  final String? vinSecret; // 车贴二维码后半段（VIN密码）
   final DateTime purchaseDate;
   double mileage;
 
@@ -27,6 +28,7 @@ class Vehicle {
     required this.model,
     required this.plateNumber,
     required this.vin,
+    this.vinSecret,
     required this.purchaseDate,
     this.mileage = 0,
     this.battery = 0,
@@ -48,6 +50,7 @@ class Vehicle {
       model: map['model'] as String,
       plateNumber: map['plateNumber'] as String,
       vin: map['vin'] as String,
+      vinSecret: map['vinSecret'] as String?,
       purchaseDate: DateTime.parse(map['purchaseDate'] as String),
       mileage: (map['mileage'] as num?)?.toDouble() ?? 0,
       battery: (map['battery'] as num?)?.toDouble() ?? 0,
@@ -72,6 +75,7 @@ class Vehicle {
       'model': model,
       'plateNumber': plateNumber,
       'vin': vin,
+        'vinSecret': vinSecret,
       'purchaseDate': purchaseDate.toIso8601String(),
       'mileage': mileage,
       'battery': battery,

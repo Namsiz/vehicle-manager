@@ -17,7 +17,13 @@ class VehicleService {
 
   /// 初始化：从本地存储加载真实数据（若已有则覆盖 demo）
   Future<void> init() async {
-    _prefs = await SharedPreferences.getInstance();
+    try {
+      _prefs = await SharedPreferences.getInstance();
+    } catch (e) {
+      debugPrint('SharedPreferences 不可用: $e');
+      _prefs = null;
+      return; // 直接用 demo 数据展示，不阻塞首屏
+    }
     final raw = _prefs!.getString(_storageKey);
     if (raw != null) {
       _vehicles.clear();
@@ -139,16 +145,17 @@ class VehicleService {
 
   String toJson() => json.encode(_vehicles.map((v) => v.toMap()).toList());
 
-  /// 示例数据（首屏兜底）
+  /// 示例数据（首屏兜底；已预置车贴二维码解析出的真实 VIN）
   void _loadDemo() {
     _vehicles.addAll([
       Vehicle(
         id: 'demo-1',
         name: '我的小摩托',
-        brand: '我的',
-        model: '小摩托',
-        plateNumber: '粤A·D12345',
-        vin: 'MYMOTO0000000001',
+        brand: '雅迪',
+        model: '电动车',
+        plateNumber: '待上牌',
+        vin: '399722534047063',
+        vinSecret: '4002910179',
         purchaseDate: DateTime(2024, 6, 1),
         mileage: 1230,
         battery: 78,
@@ -157,25 +164,8 @@ class VehicleService {
         charging: false,
         location: '家中楼下',
         lastRide: DateTime.now().subtract(const Duration(hours: 3)),
-        color: '红色',
-        description: '通勤主力',
-      ),
-      Vehicle(
-        id: 'demo-2',
-        name: '备用车',
-        brand: '我的',
-        model: '小摩托·轻',
-        plateNumber: '粤A·E67890',
-        vin: 'MYMOTO0000000002',
-        purchaseDate: DateTime(2023, 11, 15),
-        mileage: 4210,
-        battery: 12,
-        range: 6,
-        online: false,
-        charging: true,
-        location: '公司充电桩',
-        lastRide: DateTime.now().subtract(const Duration(days: 2)),
-        color: '白色',
+        color: '',
+        description: '扫码绑定：399722534047063/4002910179',
       ),
     ]);
   }
